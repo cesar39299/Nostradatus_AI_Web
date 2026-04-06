@@ -2,8 +2,8 @@
 import axios from "axios";
 
 const API = axios.create({
-    baseURL: "http://127.0.0.1:8000",
-    //baseURL: "https://nostradatusai-api-ghbaa3dqaydmaubx.brazilsouth-01.azurewebsites.net/",
+    //baseURL: "http://127.0.0.1:8000",
+    baseURL: "https://nostradatusai-api-ghbaa3dqaydmaubx.brazilsouth-01.azurewebsites.net/",
     timeout: 10000, // ⏱️ evita que se quede colgado
 });
 
