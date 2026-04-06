@@ -61,6 +61,25 @@
     padding-top: 10px;
 }
 
+/* PREDICCIÓN */
+.prediction {
+    margin-top: 12px;
+    padding: 10px;
+    border: 1px solid #3b82f6;
+    border-radius: 8px;
+    background-color: #e0f2fe;
+}
+
+    .prediction h4 {
+        margin: 0 0 6px 0;
+        font-size: 1rem;
+    }
+
+    .prediction p {
+        margin: 2px 0;
+        font-size: 0.95rem;
+    }
+
 /* MAPA */
 .map-container {
     flex: 1;

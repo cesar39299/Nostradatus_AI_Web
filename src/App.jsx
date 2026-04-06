@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
 import MapView from "./Components/MapView.jsx";
 import Sidebar from "./Components/Sidebar.jsx";
-import { getClusters } from "./Services/Api.js";
+import { getClusters, getPrediction } from "./Services/Api.js";
 import "../Styles.css";
 
 const App = () => {
     const [properties, setProperties] = useState([]);
     const [clusters, setClusters] = useState([]);
     const [selectedProperty, setSelectedProperty] = useState(null);
+    const [prediction, setPrediction] = useState(null);
 
     const [loadingProperties, setLoadingProperties] = useState(false);
 
-    // Secciones colapsables
-    const [filtersCollapsed, setFiltersCollapsed] = useState(false); // expandido por defecto
-    const [clustersCollapsed, setClustersCollapsed] = useState(false); // expandido por defecto
-    const [propertiesCollapsed, setPropertiesCollapsed] = useState(true); // colapsado por defecto
+    const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+    const [clustersCollapsed, setClustersCollapsed] = useState(false);
+    const [propertiesCollapsed, setPropertiesCollapsed] = useState(true);
 
     const [filters, setFilters] = useState({
         min_price: null,
@@ -22,6 +22,58 @@ const App = () => {
         district: "",
     });
 
+    // =========================
+    // 🔢 FORMAT
+    // =========================
+    const formatNumber = (num) => {
+        if (num === null || num === undefined || isNaN(num)) return "-";
+        return Number(num).toFixed(2);
+    };
+
+    // =========================
+    // 🔥 EVALUACIÓN IA
+    // =========================
+    const evaluatePrice = () => {
+        if (!prediction) return null;
+
+        const predicted = Number(prediction.predicted_price);
+        const avg = Number(prediction.avg_price);
+
+        if (!predicted || !avg) return null;
+
+        const diff = (predicted - avg) / avg;
+
+        if (diff > 0.05) {
+            return {
+                label: "Oportunidad",
+                color: "#16a34a",
+                icon: "🟢",
+                message: "El precio proyectado es mayor al promedio. Zona con potencial de subida."
+            };
+        }
+
+        if (diff < -0.05) {
+            return {
+                label: "Sobrevalorado",
+                color: "#dc2626",
+                icon: "🔴",
+                message: "El precio proyectado está por debajo del promedio. Riesgo de sobreprecio."
+            };
+        }
+
+        return {
+            label: "Precio Justo",
+            color: "#ca8a04",
+            icon: "🟡",
+            message: "El precio está alineado con el mercado."
+        };
+    };
+
+    const evaluation = evaluatePrice();
+
+    // =========================
+    // CLUSTERS
+    // =========================
     useEffect(() => {
         const loadClusters = async () => {
             try {
@@ -43,55 +95,69 @@ const App = () => {
         )
         .sort((a, b) => (b.total_properties || 0) - (a.total_properties || 0));
 
+    // =========================
+    // 🔥 PREDICT
+    // =========================
+    useEffect(() => {
+        if (!filters.district) {
+            setPrediction(null);
+            return;
+        }
+
+        const fetchPrediction = async () => {
+            try {
+                const res = await getPrediction(filters.district);
+                setPrediction(res.data);
+            } catch (err) {
+                console.error(err);
+                setPrediction({ error: "Error en predicción" });
+            }
+        };
+
+        fetchPrediction();
+    }, [filters.district]);
+
     const handleSelectProperty = (prop) => {
         setSelectedProperty(prop);
+        setPropertiesCollapsed(false);
     };
 
-    const resetFilters = () =>
+    const resetFilters = () => {
         setFilters({ min_price: null, max_price: null, district: "" });
+        setPrediction(null);
+    };
 
     return (
         <div className="layout">
-            {/* SIDEBAR */}
             <div className="sidebar">
+
                 {/* FILTROS */}
                 <div className="section">
-                    <h3
-                        className="section-title"
-                        onClick={() => setFiltersCollapsed((prev) => !prev)}
-                    >
+                    <h3 className="section-title" onClick={() => setFiltersCollapsed(p => !p)}>
                         Filtros {filtersCollapsed ? "▼" : "▲"}
                     </h3>
+
                     {!filtersCollapsed && (
                         <div className="section-content">
-                            <input
-                                type="number"
-                                placeholder="Precio mínimo"
-                                onChange={(e) =>
-                                    setFilters((prev) => ({
-                                        ...prev,
-                                        min_price: e.target.value ? Number(e.target.value) : null,
-                                    }))
-                                }
-                            />
-                            <input
-                                type="number"
-                                placeholder="Precio máximo"
-                                onChange={(e) =>
-                                    setFilters((prev) => ({
-                                        ...prev,
-                                        max_price: e.target.value ? Number(e.target.value) : null,
-                                    }))
-                                }
-                            />
-                            <input
-                                type="text"
-                                placeholder="Distrito"
+                            <input type="number" placeholder="Precio mínimo"
+                                onChange={e => setFilters(p => ({
+                                    ...p,
+                                    min_price: e.target.value ? Number(e.target.value) : null
+                                }))} />
+
+                            <input type="number" placeholder="Precio máximo"
+                                onChange={e => setFilters(p => ({
+                                    ...p,
+                                    max_price: e.target.value ? Number(e.target.value) : null
+                                }))} />
+
+                            <input type="text" placeholder="Distrito"
                                 value={filters.district}
-                                onChange={(e) =>
-                                    setFilters((prev) => ({ ...prev, district: e.target.value }))
-                                }
-                            />
+                                onChange={e => setFilters(p => ({
+                                    ...p,
+                                    district: e.target.value
+                                }))} />
+
                             <button onClick={resetFilters}>Reset</button>
                         </div>
                     )}
@@ -99,47 +165,85 @@ const App = () => {
 
                 {/* CLUSTERS */}
                 <div className="section">
-                    <h3
-                        className="section-title"
-                        onClick={() => setClustersCollapsed((prev) => !prev)}
-                    >
+                    <h3 className="section-title" onClick={() => setClustersCollapsed(p => !p)}>
                         Distritos (Cluster) {clustersCollapsed ? "▼" : "▲"}
                     </h3>
+
                     {!clustersCollapsed && (
                         <div className="section-content clusters">
-                            {filteredClusters.map((c, i) => (
-                                <div
-                                    key={i}
-                                    className={`card ${filters.district.toLowerCase() === c.district.toLowerCase()
-                                            ? "selected"
-                                            : ""
-                                        }`}
-                                    onClick={() =>
-                                        setFilters((prev) => ({ ...prev, district: c.district }))
-                                    }
-                                >
-                                    <b>{c.district}</b>
-                                    <br />
-                                    📦 {c.total_properties || 0}
-                                    <br />
-                                    💰 ${Math.round(c.avg_price_m2 || 0)} / m²
-                                </div>
-                            ))}
+                            {filteredClusters.map((c, i) => {
+                                const isSelected =
+                                    filters.district.toLowerCase() === c.district.toLowerCase();
+
+                                return (
+                                    <div key={i}>
+                                        <div
+                                            className={`card ${isSelected ? "selected" : ""}`}
+                                            onClick={() =>
+                                                setFilters(p => ({ ...p, district: c.district }))
+                                            }
+                                        >
+                                            <b>{c.district}</b><br />
+                                            📦 {c.total_properties || 0}<br />
+                                            💰 ${formatNumber(c.avg_price_m2)} / m²
+                                        </div>
+
+                                        {/* 🔥 PREDICCIÓN */}
+                                        {isSelected && (
+                                            <div className="prediction">
+                                                {!prediction && <p>⏳ Calculando...</p>}
+
+                                                {prediction?.error && (
+                                                    <p style={{ color: "red" }}>
+                                                        ❌ {prediction.error}
+                                                    </p>
+                                                )}
+
+                                                {prediction && !prediction.error && (
+                                                    <>
+                                                        <p>🤖 Precio estimado: ${formatNumber(prediction.predicted_price)}</p>
+                                                        <p>💰 Promedio: ${formatNumber(prediction.avg_price)}</p>
+                                                        <p>📈 Tendencia: {formatNumber(prediction.trend)}</p>
+
+                                                        {/* 🔥 TARJETA IA */}
+                                                        {evaluation && (
+                                                            <div style={{
+                                                                marginTop: "10px",
+                                                                padding: "10px",
+                                                                borderRadius: "8px",
+                                                                background: "#f9fafb",
+                                                                border: `2px solid ${evaluation.color}`,
+                                                                fontSize: "12px"
+                                                            }}>
+                                                                <b style={{ color: evaluation.color }}>
+                                                                    {evaluation.icon} {evaluation.label}
+                                                                </b>
+                                                                <p style={{ marginTop: "5px" }}>
+                                                                    {evaluation.message}
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
 
                 {/* PROPIEDADES */}
                 <div className="section">
-                    <h3
-                        className="section-title"
-                        onClick={() => setPropertiesCollapsed((prev) => !prev)}
-                    >
+                    <h3 className="section-title" onClick={() => setPropertiesCollapsed(p => !p)}>
                         Propiedades {propertiesCollapsed ? "▼" : "▲"}
                     </h3>
+
                     {!propertiesCollapsed && (
                         <div className="section-content">
                             {loadingProperties && <p>⏳ Cargando...</p>}
+
                             <Sidebar
                                 properties={properties}
                                 onSelectProperty={handleSelectProperty}

@@ -2,9 +2,9 @@ const Sidebar = ({ properties, onSelectProperty, selectedProperty }) => {
 
     return (
         <div style={{
-            width: "400px",
-            height: "100vh",
-            overflowY: "scroll",
+            width: "100%",
+            height: "100%",
+            overflowY: "auto",
             background: "#fff",
             padding: "8px"
         }}>
@@ -16,27 +16,34 @@ const Sidebar = ({ properties, onSelectProperty, selectedProperty }) => {
 
             {properties.map(p => {
 
-                const isSelected = selectedProperty?.id === p.id;
+                // 🔥 soporta id o PropertyId
+                const propId = p.id || p.PropertyId;
+                const selectedId = selectedProperty?.id || selectedProperty?.PropertyId;
+
+                const isSelected = selectedId === propId;
 
                 return (
                     <div
-                        key={p.id}
-                        onClick={() => onSelectProperty?.(p)}
+                        key={propId}
+                        onClick={() => {
+                            console.log("🖱️ Click en propiedad:", p);
+                            onSelectProperty?.(p);
+                        }}
                         style={{
-                            padding: "6px",
+                            padding: "8px",
                             cursor: "pointer",
-                            borderRadius: "4px",
-                            marginBottom: "4px",
+                            borderRadius: "6px",
+                            marginBottom: "6px",
 
-                            // 🔥 compacto extremo
-                            fontSize: "10px",
-                            lineHeight: "12px",
+                            fontSize: "11px",
+                            lineHeight: "14px",
 
-                            // 🔥 highlight selección
                             background: isSelected ? "#dbeafe" : "#fff",
                             border: isSelected
-                                ? "1.5px solid #3b82f6"
-                                : "1px solid #eee"
+                                ? "2px solid #3b82f6"
+                                : "1px solid #eee",
+
+                            transition: "all 0.2s ease"
                         }}
                     >
                         <div style={{ fontWeight: "600" }}>
@@ -48,7 +55,7 @@ const Sidebar = ({ properties, onSelectProperty, selectedProperty }) => {
                         </div>
 
                         <div style={{ color: "#555" }}>
-                            📍 {p.district || "-"}
+                            📍 {p.district || p.district_name || "Sin distrito"}
                         </div>
                     </div>
                 );
